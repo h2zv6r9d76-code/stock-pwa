@@ -57,9 +57,13 @@ function render(){
   document.querySelectorAll(".item-swipe-wrap").forEach(wrap=>{
     const el=wrap.querySelector(".item");
     const id=wrap.dataset.id;
-    let startX=0,currentX=0,dragging=false;
+    let startX=0,startY=0,currentX=0,currentY=0,dragging=false,moved=false,pointerId=null;
 
     el.addEventListener("click",e=>{
+      if(moved){
+        moved=false;
+        return;
+      }
       if(wrap.classList.contains("revealed")){
         wrap.classList.remove("revealed");
         return;
@@ -72,31 +76,48 @@ function render(){
     el.querySelector(".quick-plus").addEventListener("click",()=>changeQty(id,1));
     wrap.querySelector(".swipe-delete").addEventListener("click",()=>moveToTrash(id));
 
-    el.addEventListener("touchstart",e=>{
-      startX=e.touches[0].clientX;
-      currentX=startX;
+    el.addEventListener("pointerdown",e=>{
+      if(e.pointerType==="mouse" && e.button!==0)return;
+      startX=currentX=e.clientX;
+      startY=currentY=e.clientY;
       dragging=true;
-    },{passive:true});
+      moved=false;
+      pointerId=e.pointerId;
+      try{el.setPointerCapture(pointerId)}catch(_){}
+    });
 
-    el.addEventListener("touchmove",e=>{
-      if(!dragging)return;
-      currentX=e.touches[0].clientX;
+    el.addEventListener("pointermove",e=>{
+      if(!dragging || e.pointerId!==pointerId)return;
+      currentX=e.clientX;
+      currentY=e.clientY;
       const dx=currentX-startX;
+      const dy=currentY-startY;
+      if(Math.abs(dy)>Math.abs(dx) && Math.abs(dy)>8){
+        dragging=false;
+        el.style.transform="";
+        try{el.releasePointerCapture(pointerId)}catch(_){}
+        return;
+      }
+      if(Math.abs(dx)>6)moved=true;
       if(dx<0){
         el.style.transform=`translateX(${Math.max(dx,-92)}px)`;
       }else if(wrap.classList.contains("revealed")){
         el.style.transform=`translateX(${Math.min(-92+dx,0)}px)`;
       }
-    },{passive:true});
+    });
 
-    el.addEventListener("touchend",()=>{
-      if(!dragging)return;
+    const finishSwipe=e=>{
+      if(!dragging || e.pointerId!==pointerId)return;
       const dx=currentX-startX;
       dragging=false;
       el.style.transform="";
-      if(dx<-45)wrap.classList.add("revealed");
-      else if(dx>35)wrap.classList.remove("revealed");
-    });
+      try{el.releasePointerCapture(pointerId)}catch(_){}
+      if(dx<-35)wrap.classList.add("revealed");
+      else if(dx>25)wrap.classList.remove("revealed");
+      setTimeout(()=>{moved=false},50);
+    };
+    el.addEventListener("pointerup",finishSwipe);
+    el.addEventListener("pointercancel",finishSwipe);
   })
 }
 

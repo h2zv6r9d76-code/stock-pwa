@@ -286,3 +286,5 @@ dialog::backdrop{background:rgba(0,0,0,.34);backdrop-filter:blur(2px)}
 .danger-text{
   color:var(--red)!important;
 }
+
+.item-swipe-wrap .item{touch-action:pan-y;user-select:none;-webkit-user-select:none}.item-swipe-wrap{isolation:isolate}
