@@ -89,7 +89,29 @@ async function imageToDataURL(file){
   c.getContext("2d").drawImage(img,0,0,c.width,c.height);img.close();return c.toDataURL("image/jpeg",.8)
 }
 
-$("photo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;currentPhoto=await imageToDataURL(f);$("photoPreview").src=currentPhoto;$("photoPreview").hidden=false;$("removePhoto").checked=false});
+$("photo").addEventListener("change",async e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  try{
+    currentPhoto=await imageToDataURL(f);
+    $("photoPreview").src=currentPhoto;
+    $("photoPreview").hidden=false;
+    $("removePhoto").checked=false;
+  }catch(err){
+    console.error(err);
+    alert("画像を読み込めませんでした。別の画像を選んでください。");
+  }finally{
+    e.target.value="";
+  }
+});
+$("removePhoto").addEventListener("change",e=>{
+  if(e.target.checked){
+    $("photoPreview").hidden=true;
+  }else if(currentPhoto){
+    $("photoPreview").src=currentPhoto;
+    $("photoPreview").hidden=false;
+  }
+});
 $("itemForm").addEventListener("submit",async e=>{
   e.preventDefault();const now=new Date().toISOString(),old=allItems.find(x=>x.id===$("itemId").value);
   const item={id:old?.id||crypto.randomUUID(),name:$("name").value.trim(),quantity:Number($("quantity").value),unit:$("unit").value.trim(),category:$("category").value.trim(),location:$("location").value.trim(),note:$("note").value.trim(),photoDataUrl:$("removePhoto").checked?null:currentPhoto,createdAt:old?.createdAt||now,updatedAt:now};
