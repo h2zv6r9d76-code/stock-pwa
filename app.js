@@ -13,7 +13,8 @@ function fmtDate(v){return v?new Intl.DateTimeFormat("ja-JP",{month:"numeric",da
 
 async function refresh(){
   allItems=(await getAll()).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
-  const cats=[...new Set(allItems.map(x=>x.category).filter(Boolean))].sort();
+  const activeItems=allItems.filter(x=>!x.deletedAt);
+  const cats=[...new Set(activeItems.map(x=>x.category).filter(Boolean))].sort();
   const selected=$("categoryFilter").value;
   $("categoryFilter").innerHTML='<option value="">すべての分類</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
   $("categoryFilter").value=cats.includes(selected)?selected:"";
@@ -22,33 +23,80 @@ async function refresh(){
 
 function render(){
   const q=$("search").value.trim().toLowerCase(),cat=$("categoryFilter").value;
-  const list=allItems.filter(x=>{const text=[x.name,x.category,x.location,x.note,x.unit].join(" ").toLowerCase();return(!q||text.includes(q))&&(!cat||x.category===cat)});
-  $("summary").textContent=`${allItems.length}品目`;
+  const list=allItems.filter(x=>!x.deletedAt).filter(x=>{const text=[x.name,x.category,x.location,x.note,x.unit].join(" ").toLowerCase();return(!q||text.includes(q))&&(!cat||x.category===cat)});
+  const activeItems=allItems.filter(x=>!x.deletedAt);
+  const trashItems=allItems.filter(x=>x.deletedAt);
+  $("summary").textContent=`${activeItems.length}品目`;
+  $("trashCount").textContent=trashItems.length;
   $("clearSearch").hidden=!q;
   $("empty").hidden=list.length!==0;
   $("items").className=`inventory ${currentView}-view`;
   $("items").innerHTML=list.map((x,i)=>`
-    <article class="item" data-id="${x.id}" style="animation-delay:${Math.min(i*25,200)}ms">
-      ${x.photoDataUrl?`<img class="item-image" src="${x.photoDataUrl}" alt="">`:`<div class="item-image image-placeholder">□</div>`}
-      <div class="item-main">
-        <h3 class="item-title">${esc(x.name)}</h3>
-        <div class="item-sub">${esc([x.category,x.location].filter(Boolean).join("・")||"未分類")}</div>
-        <div class="quantity-line">${esc(fmtQty(x.quantity))} ${esc(x.unit||"")}</div>
-        <div class="item-sub">更新 ${fmtDate(x.updatedAt)}</div>
+    <div class="item-swipe-wrap" data-id="${x.id}">
+      <div class="item-swipe-actions">
+        <button type="button" class="swipe-delete">削除</button>
       </div>
-      <div class="item-actions">
-        <div class="stepper">
-          <button type="button" class="quick-minus" aria-label="1減らす">−</button>
-          <span class="count">${esc(fmtQty(x.quantity))}</span>
-          <button type="button" class="quick-plus" aria-label="1増やす">＋</button>
+      <article class="item" data-id="${x.id}" style="animation-delay:${Math.min(i*25,200)}ms">
+        ${x.photoDataUrl?`<img class="item-image" src="${x.photoDataUrl}" alt="">`:`<div class="item-image image-placeholder">□</div>`}
+        <div class="item-main">
+          <h3 class="item-title">${esc(x.name)}</h3>
+          <div class="item-sub">${esc([x.category,x.location].filter(Boolean).join("・")||"未分類")}</div>
+          <div class="quantity-line">${esc(fmtQty(x.quantity))} ${esc(x.unit||"")}</div>
+          <div class="item-sub">更新 ${fmtDate(x.updatedAt)}</div>
         </div>
-      </div>
-    </article>`).join("");
+        <div class="item-actions">
+          <div class="stepper">
+            <button type="button" class="quick-minus" aria-label="1減らす">−</button>
+            <span class="count">${esc(fmtQty(x.quantity))}</span>
+            <button type="button" class="quick-plus" aria-label="1増やす">＋</button>
+          </div>
+        </div>
+      </article>
+    </div>`).join("");
 
-  document.querySelectorAll(".item").forEach(el=>{
-    el.addEventListener("click",e=>{if(e.target.closest(".stepper"))return;editItem(el.dataset.id)});
-    el.querySelector(".quick-minus").addEventListener("click",()=>changeQty(el.dataset.id,-1));
-    el.querySelector(".quick-plus").addEventListener("click",()=>changeQty(el.dataset.id,1));
+  document.querySelectorAll(".item-swipe-wrap").forEach(wrap=>{
+    const el=wrap.querySelector(".item");
+    const id=wrap.dataset.id;
+    let startX=0,currentX=0,dragging=false;
+
+    el.addEventListener("click",e=>{
+      if(wrap.classList.contains("revealed")){
+        wrap.classList.remove("revealed");
+        return;
+      }
+      if(e.target.closest(".stepper"))return;
+      editItem(id);
+    });
+
+    el.querySelector(".quick-minus").addEventListener("click",()=>changeQty(id,-1));
+    el.querySelector(".quick-plus").addEventListener("click",()=>changeQty(id,1));
+    wrap.querySelector(".swipe-delete").addEventListener("click",()=>moveToTrash(id));
+
+    el.addEventListener("touchstart",e=>{
+      startX=e.touches[0].clientX;
+      currentX=startX;
+      dragging=true;
+    },{passive:true});
+
+    el.addEventListener("touchmove",e=>{
+      if(!dragging)return;
+      currentX=e.touches[0].clientX;
+      const dx=currentX-startX;
+      if(dx<0){
+        el.style.transform=`translateX(${Math.max(dx,-92)}px)`;
+      }else if(wrap.classList.contains("revealed")){
+        el.style.transform=`translateX(${Math.min(-92+dx,0)}px)`;
+      }
+    },{passive:true});
+
+    el.addEventListener("touchend",()=>{
+      if(!dragging)return;
+      const dx=currentX-startX;
+      dragging=false;
+      el.style.transform="";
+      if(dx<-45)wrap.classList.add("revealed");
+      else if(dx>35)wrap.classList.remove("revealed");
+    });
   })
 }
 
@@ -117,7 +165,7 @@ $("itemForm").addEventListener("submit",async e=>{
   const item={id:old?.id||crypto.randomUUID(),name:$("name").value.trim(),quantity:Number($("quantity").value),unit:$("unit").value.trim(),category:$("category").value.trim(),location:$("location").value.trim(),note:$("note").value.trim(),photoDataUrl:$("removePhoto").checked?null:currentPhoto,createdAt:old?.createdAt||now,updatedAt:now};
   await tx("readwrite",s=>s.put(item));$("editor").close();await refresh()
 });
-$("deleteBtn").addEventListener("click",async()=>{const id=$("itemId").value;if(!id||!confirm("この在庫を削除しますか？"))return;await tx("readwrite",s=>s.delete(id));$("editor").close();await refresh()});
+$("deleteBtn").addEventListener("click",async()=>{const id=$("itemId").value;if(!id)return;await moveToTrash(id);$("editor").close()});
 $("addBtn").addEventListener("click",()=>{resetForm();$("editor").showModal()});
 $("closeBtn").addEventListener("click",()=>$("editor").close());
 $("search").addEventListener("input",render);
@@ -127,6 +175,66 @@ $("listViewBtn").addEventListener("click",()=>setView("list"));
 $("cardViewBtn").addEventListener("click",()=>setView("card"));
 $("formMinus").addEventListener("click",()=>{$("quantity").value=Math.max(0,Number($("quantity").value||0)-1)});
 $("formPlus").addEventListener("click",()=>{$("quantity").value=Number($("quantity").value||0)+1});
+
+
+async function moveToTrash(id){
+  const x=allItems.find(i=>i.id===id);
+  if(!x)return;
+  x.deletedAt=new Date().toISOString();
+  x.updatedAt=x.deletedAt;
+  await tx("readwrite",s=>s.put(x));
+  await refresh();
+}
+
+async function restoreFromTrash(id){
+  const x=allItems.find(i=>i.id===id);
+  if(!x)return;
+  delete x.deletedAt;
+  x.updatedAt=new Date().toISOString();
+  await tx("readwrite",s=>s.put(x));
+  await refresh();
+  renderTrash();
+}
+
+async function permanentlyDelete(id){
+  if(!confirm("この在庫を完全に削除しますか？元に戻せません。"))return;
+  await tx("readwrite",s=>s.delete(id));
+  await refresh();
+  renderTrash();
+}
+
+function renderTrash(){
+  const trash=allItems.filter(x=>x.deletedAt).sort((a,b)=>b.deletedAt.localeCompare(a.deletedAt));
+  $("trashEmpty").hidden=trash.length!==0;
+  $("trashItems").innerHTML=trash.map(x=>`
+    <div class="trash-row">
+      ${x.photoDataUrl?`<img src="${x.photoDataUrl}" alt="">`:`<div class="trash-placeholder">□</div>`}
+      <div class="trash-main">
+        <h3 class="trash-title">${esc(x.name)}</h3>
+        <div class="trash-meta">削除 ${fmtDate(x.deletedAt)}</div>
+        <div class="trash-actions">
+          <button type="button" class="restore-btn" data-id="${x.id}">復元</button>
+          <button type="button" class="permanent-delete-btn" data-id="${x.id}">完全削除</button>
+        </div>
+      </div>
+    </div>`).join("");
+  document.querySelectorAll(".restore-btn").forEach(b=>b.addEventListener("click",()=>restoreFromTrash(b.dataset.id)));
+  document.querySelectorAll(".permanent-delete-btn").forEach(b=>b.addEventListener("click",()=>permanentlyDelete(b.dataset.id)));
+}
+
+$("trashBtn").addEventListener("click",()=>{
+  renderTrash();
+  $("trashDialog").showModal();
+});
+$("closeTrashBtn").addEventListener("click",()=>$("trashDialog").close());
+$("emptyTrashBtn").addEventListener("click",async()=>{
+  const trash=allItems.filter(x=>x.deletedAt);
+  if(!trash.length)return;
+  if(!confirm(`ゴミ箱の${trash.length}件を完全に削除しますか？元に戻せません。`))return;
+  await tx("readwrite",s=>trash.forEach(x=>s.delete(x.id)));
+  await refresh();
+  renderTrash();
+});
 
 $("backupBtn").addEventListener("click",async()=>{
   const payload={app:"stock-pwa",version:2,exportedAt:new Date().toISOString(),items:await getAll()};

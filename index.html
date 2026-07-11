@@ -67,6 +67,9 @@
           <button id="storageBtn" class="settings-row">
             <span>保存を保護する</span><span>›</span>
           </button>
+          <button id="trashBtn" class="settings-row">
+            <span>ゴミ箱</span><span id="trashCount" class="settings-badge">0</span>
+          </button>
           <p id="storageInfo" class="footnote"></p>
           <p class="footnote">画像を含むJSONとして書き出し、「ファイルに保存」からiCloud Driveを選べます。</p>
         </div>
@@ -137,6 +140,24 @@
 
       <button type="button" id="deleteBtn" class="delete-row" hidden>この在庫を削除</button>
     </form>
+  </dialog>
+
+
+  <dialog id="trashDialog" class="trash-dialog">
+    <div class="trash-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <button type="button" id="closeTrashBtn" class="text-button">閉じる</button>
+        <h2>ゴミ箱</h2>
+        <button type="button" id="emptyTrashBtn" class="text-button danger-text">すべて削除</button>
+      </div>
+      <div id="trashItems" class="trash-list"></div>
+      <div id="trashEmpty" class="empty-state" hidden>
+        <div class="empty-icon">□</div>
+        <h2>ゴミ箱は空です</h2>
+        <p>削除した在庫はここに移動します。</p>
+      </div>
+    </div>
   </dialog>
 
   <script src="./app.js"></script>
