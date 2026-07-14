@@ -1,6 +1,6 @@
 const DB_NAME="stock-pwa-db",STORE="items",DB_VERSION=1;
 const SYNC_ORIGIN="https://stock-pwa-api.h2zv6r9d76.workers.dev";
-let db,allItems=[],currentPhoto=null,currentView=localStorage.getItem("inventory-view")||"list",lastDeleted=null,toastTimer=null,syncBusy=false;
+let db,allItems=[],currentPhoto=null,currentView=localStorage.getItem("inventory-view")||"list",lastDeleted=null,toastTimer=null,syncBusy=false,scannerStream=null,scannerTimer=null,barcodeDetector=null;
 const $=id=>document.getElementById(id);
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtQty=v=>Number.isInteger(Number(v))?String(Number(v)):String(Number(v));
@@ -56,7 +56,7 @@ function render(){
   const active=allItems.filter(x=>!x.deletedAt);
   const trash=allItems.filter(x=>x.deletedAt);
   const list=active.filter(x=>{
-    const text=[x.name,x.category,x.location,x.note,x.unit,x.keywords].join(" ").toLowerCase();
+    const text=[x.name,x.barcode,x.category,x.location,x.note,x.unit,x.keywords].join(" ").toLowerCase();
     return(!q||text.includes(q))&&(!cat||x.category===cat)
   });
   $("summary").textContent=`${active.length}品目`;
@@ -183,13 +183,13 @@ function setView(v){
   render();
 }
 function resetForm(){
-  $("itemForm").reset();$("itemId").value="";$("quantity").value=1;$("formTitle").textContent="在庫を追加";
+  $("itemForm").reset();$("itemId").value="";$("barcode").value="";$("quantity").value=1;$("formTitle").textContent="在庫を追加";
   $("deleteBtn").hidden=true;$("photoPreview").hidden=true;$("photoPreview").removeAttribute("src");currentPhoto=null;
   renderSuggestions();
 }
 function editItem(id){
   const x=allItems.find(i=>i.id===id);if(!x)return;resetForm();
-  $("itemId").value=x.id;$("name").value=x.name;$("quantity").value=x.quantity;$("unit").value=x.unit||"";
+  $("itemId").value=x.id;$("name").value=x.name;$("barcode").value=x.barcode||"";$("quantity").value=x.quantity;$("unit").value=x.unit||"";
   $("category").value=x.category||"";$("location").value=x.location||"";$("note").value=x.note||"";$("keywords").value=x.keywords||"";
   $("formTitle").textContent="在庫を編集";$("deleteBtn").hidden=false;currentPhoto=x.photoDataUrl||null;
   if(currentPhoto){$("photoPreview").src=currentPhoto;$("photoPreview").hidden=false}
@@ -222,6 +222,43 @@ async function imageToDataURL(file){
   const img=await createImageBitmap(file),max=1200,scale=Math.min(1,max/Math.max(img.width,img.height));
   const c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
   c.getContext("2d").drawImage(img,0,0,c.width,c.height);img.close();return c.toDataURL("image/jpeg",.8);
+}
+function stopScanner(){
+  if(scannerTimer)cancelAnimationFrame(scannerTimer);
+  scannerTimer=null;
+  scannerStream?.getTracks().forEach(track=>track.stop());
+  scannerStream=null;
+  $("scannerVideo").srcObject=null;
+}
+async function openScanner(){
+  if(!navigator.mediaDevices?.getUserMedia){alert("この端末ではカメラを利用できません。バーコードを手入力してください。");return}
+  if(!("BarcodeDetector" in window)){alert("このブラウザではカメラ読取りに対応していません。バーコードを手入力してください。");return}
+  try{
+    const wanted=["aztec","code_128","code_39","code_93","codabar","data_matrix","ean_13","ean_8","itf","pdf417","qr_code","upc_a","upc_e"];
+    const supported=await BarcodeDetector.getSupportedFormats();
+    const formats=wanted.filter(format=>supported.includes(format));
+    if(!formats.length)throw new Error("対応形式がありません");
+    barcodeDetector=new BarcodeDetector({formats});
+    $("scannerMessage").textContent="カメラへのアクセスを許可し、バーコードまたはQRコードを枠内に入れてください。";
+    $("scannerDialog").showModal();
+    scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    const video=$("scannerVideo");video.srcObject=scannerStream;await video.play();
+    const scan=async()=>{
+      if(!scannerStream||video.readyState<2){scannerTimer=requestAnimationFrame(scan);return}
+      try{
+        const codes=await barcodeDetector.detect(video);
+        if(codes[0]?.rawValue){
+          $("barcode").value=codes[0].rawValue;
+          stopScanner();$("scannerDialog").close();showToast("コードを読み取りました");return;
+        }
+      }catch{}
+      scannerTimer=requestAnimationFrame(scan);
+    };
+    scan();
+  }catch(err){
+    stopScanner();$("scannerDialog").close();
+    alert("カメラを開始できませんでした。アクセス許可を確認するか、バーコードを手入力してください。");
+  }
 }
 
 async function moveToTrash(id,showUndo=false){
@@ -287,12 +324,15 @@ $("photo").addEventListener("change",async e=>{
 $("removePhoto").addEventListener("change",e=>{$("photoPreview").hidden=e.target.checked||!currentPhoto});
 $("itemForm").addEventListener("submit",async e=>{
   e.preventDefault();const now=new Date().toISOString(),old=allItems.find(x=>x.id===$("itemId").value);
-  const item={id:old?.id||crypto.randomUUID(),name:$("name").value.trim(),quantity:Number($("quantity").value),unit:$("unit").value.trim(),category:$("category").value.trim(),location:$("location").value.trim(),note:$("note").value.trim(),keywords:unique($("keywords").value.split(/[,、\n]/)).join("、"),photoDataUrl:$("removePhoto").checked?null:currentPhoto,createdAt:old?.createdAt||now,updatedAt:now};
+  const item={id:old?.id||crypto.randomUUID(),name:$("name").value.trim(),barcode:$("barcode").value.trim(),quantity:Number($("quantity").value),unit:$("unit").value.trim(),category:$("category").value.trim(),location:$("location").value.trim(),note:$("note").value.trim(),keywords:unique($("keywords").value.split(/[,、\n]/)).join("、"),photoDataUrl:$("removePhoto").checked?null:currentPhoto,createdAt:old?.createdAt||now,updatedAt:now};
   await tx("readwrite",s=>s.put(item));$("editor").close();await refresh();scheduleSync();
 });
 $("deleteBtn").addEventListener("click",async()=>{const id=$("itemId").value;if(id){await moveToTrash(id,true);$("editor").close()}});
 $("addBtn").addEventListener("click",()=>{resetForm();$("editor").showModal()});
 $("closeBtn").addEventListener("click",()=>$("editor").close());
+$("scanBarcodeBtn").addEventListener("click",openScanner);
+$("closeScannerBtn").addEventListener("click",()=>{stopScanner();$("scannerDialog").close()});
+$("scannerDialog").addEventListener("close",stopScanner);
 $("search").addEventListener("input",render);
 $("clearSearch").addEventListener("click",()=>{$("search").value="";render()});
 $("categoryFilter").addEventListener("change",render);

@@ -81,6 +81,11 @@
 
     <section class="form-group">
       <label class="form-row"><span>商品名</span><input id="name" required maxlength="100" placeholder="必須"></label>
+      <div class="form-row barcode-row">
+        <span>バーコード</span>
+        <input id="barcode" inputmode="numeric" maxlength="128" placeholder="任意" aria-label="バーコード">
+        <button id="scanBarcodeBtn" type="button" class="scan-button">スキャン</button>
+      </div>
     </section>
 
     <section class="form-group">
@@ -120,6 +125,21 @@
 
     <button id="deleteBtn" type="button" class="delete-item" hidden>ゴミ箱へ移動</button>
   </form>
+</dialog>
+
+<dialog id="scannerDialog">
+  <div class="scanner-sheet">
+    <div class="sheet-head">
+      <button id="closeScannerBtn" type="button">閉じる</button>
+      <h2>バーコードを読み取る</h2>
+      <span></span>
+    </div>
+    <div class="scanner-frame">
+      <video id="scannerVideo" playsinline muted></video>
+      <div class="scanner-guide" aria-hidden="true"></div>
+    </div>
+    <p id="scannerMessage" class="scanner-note">カメラへのアクセスを許可し、バーコードまたはQRコードを枠内に入れてください。</p>
+  </div>
 </dialog>
 
 <dialog id="trashDialog">
