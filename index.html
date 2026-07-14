@@ -143,6 +143,21 @@
   <button id="undoBtn" type="button">元に戻す</button>
 </div>
 
+<dialog id="loginDialog">
+  <form id="loginForm">
+    <div class="handle"></div>
+    <div class="sheet-head">
+      <button id="closeLoginBtn" type="button">キャンセル</button>
+      <h2>クラウド同期にログイン</h2>
+      <button class="save" type="submit">ログイン</button>
+    </div>
+    <p class="login-note">同期用に設定したパスワードを入力してください。この端末にだけログイン情報を保存します。</p>
+    <section class="form-group">
+      <label class="form-row stacked"><span>パスワード</span><input id="syncPassword" type="password" autocomplete="current-password" required minlength="16" placeholder="16文字以上"></label>
+    </section>
+  </form>
+</dialog>
+
 <script src="./app.js"></script>
 </body>
 </html>

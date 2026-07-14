@@ -1,5 +1,5 @@
 const DB_NAME="stock-pwa-db",STORE="items",DB_VERSION=1;
-const SYNC_API="https://stock-pwa-api.h2zv6r9d76.workers.dev/v1/sync";
+const SYNC_ORIGIN="https://stock-pwa-api.h2zv6r9d76.workers.dev";
 let db,allItems=[],currentPhoto=null,currentView=localStorage.getItem("inventory-view")||"list",lastDeleted=null,toastTimer=null,syncBusy=false;
 const $=id=>document.getElementById(id);
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -18,23 +18,26 @@ function tx(mode,fn){return new Promise((resolve,reject)=>{const t=db.transactio
 function getAll(){return new Promise((resolve,reject)=>{const r=db.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 
 function cloudSyncEnabled(){return localStorage.getItem("inventory-cloud-sync")==="true"}
+function syncToken(){return localStorage.getItem("inventory-sync-token")}
 function setSyncStatus(text){$("syncStatus").textContent=text}
-function updateSyncStatus(){setSyncStatus(cloudSyncEnabled()?"同期中":"オフ")}
-function scheduleSync(){if(cloudSyncEnabled())syncNow({quiet:true})}
+function updateSyncStatus(){setSyncStatus(cloudSyncEnabled()?(syncToken()?"同期済み":"ログイン"):'オフ')}
+function scheduleSync(){if(cloudSyncEnabled()&&syncToken())syncNow({quiet:true})}
+function openLogin(){$("syncPassword").value="";$("loginDialog").showModal();$("syncPassword").focus()}
 async function syncNow({quiet=false}={}){
   if(syncBusy||!navigator.onLine)return;
+  if(!syncToken()){setSyncStatus("ログイン");if(!quiet)openLogin();return}
   syncBusy=true;setSyncStatus("同期中…");
   try{
     const local=await getAll();
-    const r=await fetch(SYNC_API,{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({items:local})});
-    if(r.status===401||r.status===403)throw new Error("Cloudflare Accessへのログインが必要です");
+    const r=await fetch(`${SYNC_ORIGIN}/v1/sync`,{method:"POST",headers:{"content-type":"application/json","authorization":`Bearer ${syncToken()}`},body:JSON.stringify({items:local})});
+    if(r.status===401||r.status===403){localStorage.removeItem("inventory-sync-token");throw new Error("ログインの有効期限が切れました")}
     if(!r.ok)throw new Error("同期サーバーに接続できませんでした");
     const data=await r.json();
     if(!Array.isArray(data.items))throw new Error("同期データの形式が正しくありません");
     await tx("readwrite",s=>data.items.forEach(item=>s.put(item)));
     await refresh();setSyncStatus("同期済み");
     if(!quiet)showToast("クラウド同期が完了しました");
-  }catch(err){setSyncStatus("要ログイン");if(!quiet)alert(`同期できませんでした：${err.message}`)}
+  }catch(err){setSyncStatus(syncToken()?"再試行":"ログイン");if(!quiet)alert(`同期できませんでした：${err.message}`)}
   finally{syncBusy=false}
 }
 
@@ -318,6 +321,17 @@ $("syncBtn").addEventListener("click",async()=>{
   }
   await syncNow();
 });
+$("loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const password=$("syncPassword").value;
+  try{
+    const r=await fetch(`${SYNC_ORIGIN}/v1/login`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({password})});
+    if(!r.ok)throw new Error("パスワードが正しくありません");
+    const data=await r.json();if(!data.token)throw new Error("ログイン情報を取得できませんでした");
+    localStorage.setItem("inventory-sync-token",data.token);$("loginDialog").close();await syncNow();
+  }catch(err){alert(`ログインできませんでした：${err.message}`)}
+});
+$("closeLoginBtn").addEventListener("click",()=>$("loginDialog").close());
 $("restoreInput").addEventListener("change",async e=>{
   const f=e.target.files[0];if(!f)return;
   try{const data=JSON.parse(await f.text());if(data.app!=="stock-pwa"||!Array.isArray(data.items))throw Error("形式が違います");if(!confirm("現在の在庫に追加・上書きしますか？"))return;await tx("readwrite",s=>data.items.forEach(i=>s.put(i)));await refresh();scheduleSync();alert(`${data.items.length}件を復元しました`)}
