@@ -1,6 +1,21 @@
-# 在庫管理PWA Ver.3.1
+# 在庫管理PWA Ver.3.3
 
 既存の在庫データを保ったまま更新できる、iPhone向けのオフライン在庫管理PWAです。
+
+## Ver.3.3 の追加内容
+
+- Cloudflare D1 への任意のクラウド同期を追加。設定を有効にするまで、従来どおり端末内だけに保存されます。
+- Safariでも使える共有パスワード方式のログインを追加。パスワードはCloudflare Workerの秘密変数にのみ保存します。
+- 端末間で同じ商品を編集した場合は、更新日時が新しい内容を採用します。
+
+## Cloudflare の設定（無料枠）
+
+1. Workers & Pages で `stock-pwa-api` を開き、編集画面に `worker.js` の内容を貼り付けてデプロイします。
+2. **Settings > Variables and secrets** に、Type を **Secret** として `APP_PASSWORD` を追加します。値には16文字以上の強いパスワードを設定します。
+3. **Domains** で Worker URL を **Public** にします。Workerはパスワードなしでは同期データを返しません。
+4. GitHub Pages を更新した後、アプリの「バックアップ・設定 > クラウド同期」で同じパスワードを入力します。
+
+API トークン、GitHub のパスワード、Cloudflare の同期パスワードをアプリのコードへ貼り付けないでください。Workers Free と D1 Free の範囲で運用できます。
 
 ## Ver.3.1 の追加内容
 
