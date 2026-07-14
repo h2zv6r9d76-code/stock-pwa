@@ -385,4 +385,4 @@ async function showStorage(){
 
 ["name","category","location","keywords"].forEach(id=>$(id).addEventListener("input",renderSuggestions));
 
-(async()=>{db=await openDB();setView(currentView);await refresh();updateSyncStatus();await showStorage();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(console.error);window.addEventListener("online",()=>scheduleSync())})().catch(err=>alert("起動エラー："+err.message));
+(async()=>{db=await openDB();setView(currentView);await refresh();updateSyncStatus();await showStorage();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(console.error);window.addEventListener("online",()=>scheduleSync());scheduleSync()})().catch(err=>alert("起動エラー："+err.message));
