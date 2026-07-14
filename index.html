@@ -14,152 +14,127 @@
   <title>在庫管理</title>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="title-wrap">
-        <p class="eyebrow">INVENTORY</p>
-        <h1>在庫管理</h1>
-        <p id="summary" class="summary">読み込み中…</p>
-      </div>
-      <button id="addBtn" class="circle-button primary" aria-label="在庫を追加">＋</button>
-    </header>
-
-    <main>
-      <section class="controls">
-        <label class="search-box">
-          <span class="search-icon">⌕</span>
-          <input id="search" type="search" placeholder="検索" autocomplete="off">
-          <button id="clearSearch" type="button" class="clear-search" hidden>×</button>
-        </label>
-
-        <div class="control-row">
-          <select id="categoryFilter" class="ios-select">
-            <option value="">すべての分類</option>
-          </select>
-
-          <div class="segmented" role="group" aria-label="表示切替">
-            <button id="listViewBtn" type="button" class="segment active" aria-pressed="true">リスト</button>
-            <button id="cardViewBtn" type="button" class="segment" aria-pressed="false">カード</button>
-          </div>
-        </div>
-      </section>
-
-      <section id="items" class="inventory list-view"></section>
-      <div id="empty" class="empty-state" hidden>
-        <div class="empty-icon">□</div>
-        <h2>在庫がありません</h2>
-        <p>右上の＋から最初の在庫を追加してください。</p>
-      </div>
-
-      <details class="settings-group">
-        <summary>
-          <span>バックアップ・設定</span>
-          <span class="chevron">›</span>
-        </summary>
-        <div class="settings-content">
-          <button id="backupBtn" class="settings-row">
-            <span>バックアップを書き出す</span><span>›</span>
-          </button>
-          <label class="settings-row file-row">
-            <span>バックアップから復元</span><span>›</span>
-            <input id="restoreInput" type="file" accept="application/json,.json">
-          </label>
-          <button id="storageBtn" class="settings-row">
-            <span>保存を保護する</span><span>›</span>
-          </button>
-          <button id="trashBtn" class="settings-row">
-            <span>ゴミ箱</span><span id="trashCount" class="settings-badge">0</span>
-          </button>
-          <p id="storageInfo" class="footnote"></p>
-          <p class="footnote">画像を含むJSONとして書き出し、「ファイルに保存」からiCloud Driveを選べます。</p>
-        </div>
-      </details>
-    </main>
-  </div>
-
-  <dialog id="editor">
-    <form id="itemForm" method="dialog">
-      <div class="sheet-handle"></div>
-
-      <div class="sheet-header">
-        <button type="button" id="closeBtn" class="text-button">キャンセル</button>
-        <h2 id="formTitle">在庫を追加</h2>
-        <button type="submit" class="text-button strong">保存</button>
-      </div>
-
-      <input id="itemId" type="hidden">
-
-      <section class="form-group">
-        <label class="form-row">
-          <span>商品名</span>
-          <input id="name" required maxlength="100" autocomplete="off" placeholder="必須">
-        </label>
-      </section>
-
-      <section class="form-group">
-        <div class="form-row quantity-editor">
-          <span>数量</span>
-          <div class="stepper large-stepper">
-            <button type="button" id="formMinus" aria-label="数量を減らす">−</button>
-            <input id="quantity" type="number" step="0.01" value="1" required inputmode="decimal">
-            <button type="button" id="formPlus" aria-label="数量を増やす">＋</button>
-          </div>
-        </div>
-        <label class="form-row">
-          <span>単位</span>
-          <input id="unit" placeholder="個・箱・巻など" maxlength="20">
-        </label>
-        <label class="form-row">
-          <span>分類</span>
-          <input id="category" placeholder="消耗品・工具など" maxlength="50">
-        </label>
-        <label class="form-row">
-          <span>保管場所</span>
-          <input id="location" placeholder="棚A・引き出しなど" maxlength="100">
-        </label>
-      </section>
-
-      <section class="form-group">
-        <label class="form-row stacked">
-          <span>メモ</span>
-          <textarea id="note" rows="4" maxlength="500" placeholder="メモを入力"></textarea>
-        </label>
-      </section>
-
-      <section class="form-group">
-        <label class="form-row file-picker">
-          <span>写真・画像を選択</span><span class="row-chevron">›</span>
-          <input id="photo" type="file" accept="image/*">
-        </label>
-        <img id="photoPreview" class="preview" hidden alt="選択画像">
-        <label class="form-row checkbox-row">
-          <span>現在の画像を削除</span>
-          <input id="removePhoto" type="checkbox">
-        </label>
-      </section>
-
-      <button type="button" id="deleteBtn" class="delete-row" hidden>この在庫を削除</button>
-    </form>
-  </dialog>
-
-
-  <dialog id="trashDialog" class="trash-dialog">
-    <div class="trash-sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-header">
-        <button type="button" id="closeTrashBtn" class="text-button">閉じる</button>
-        <h2>ゴミ箱</h2>
-        <button type="button" id="emptyTrashBtn" class="text-button danger-text">すべて削除</button>
-      </div>
-      <div id="trashItems" class="trash-list"></div>
-      <div id="trashEmpty" class="empty-state" hidden>
-        <div class="empty-icon">□</div>
-        <h2>ゴミ箱は空です</h2>
-        <p>削除した在庫はここに移動します。</p>
-      </div>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">INVENTORY</p>
+      <h1>在庫管理</h1>
+      <p id="summary" class="summary">読み込み中…</p>
     </div>
-  </dialog>
+    <button id="addBtn" class="add-button" aria-label="追加">＋</button>
+  </header>
 
-  <script src="./app.js"></script>
+  <main>
+    <section class="filters">
+      <label class="search">
+        <span>⌕</span>
+        <input id="search" type="search" placeholder="検索">
+        <button id="clearSearch" type="button" hidden>×</button>
+      </label>
+      <div class="filter-row">
+        <select id="categoryFilter">
+          <option value="">すべての分類</option>
+        </select>
+        <div class="segments">
+          <button id="listViewBtn" class="active" type="button">リスト</button>
+          <button id="cardViewBtn" type="button">カード</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="swipe-hint">項目を左へスワイプすると削除できます</p>
+    <section id="items" class="inventory list-view"></section>
+
+    <div id="empty" class="empty" hidden>
+      <div class="empty-mark">□</div>
+      <h2>在庫がありません</h2>
+      <p>右上の＋から追加してください。</p>
+    </div>
+
+    <details class="settings">
+      <summary><span>バックアップ・設定</span><span>›</span></summary>
+      <div>
+        <button id="trashBtn" class="settings-row">
+          <span>ゴミ箱</span><span id="trashCount" class="badge">0</span>
+        </button>
+        <button id="backupBtn" class="settings-row"><span>バックアップを書き出す</span><span>›</span></button>
+        <label class="settings-row file-row">
+          <span>バックアップから復元</span><span>›</span>
+          <input id="restoreInput" type="file" accept="application/json,.json">
+        </label>
+        <button id="storageBtn" class="settings-row"><span>保存を保護する</span><span>›</span></button>
+        <p id="storageInfo" class="footnote"></p>
+      </div>
+    </details>
+  </main>
+</div>
+
+<dialog id="editor">
+  <form id="itemForm">
+    <div class="handle"></div>
+    <div class="sheet-head">
+      <button type="button" id="closeBtn">キャンセル</button>
+      <h2 id="formTitle">在庫を追加</h2>
+      <button type="submit" class="save">保存</button>
+    </div>
+    <input id="itemId" type="hidden">
+
+    <section class="form-group">
+      <label class="form-row"><span>商品名</span><input id="name" required maxlength="100" placeholder="必須"></label>
+    </section>
+
+    <section class="form-group">
+      <div class="form-row">
+        <span>数量</span>
+        <div class="form-stepper">
+          <button id="formMinus" type="button">−</button>
+          <input id="quantity" type="number" step="0.01" value="1" required>
+          <button id="formPlus" type="button">＋</button>
+        </div>
+      </div>
+      <label class="form-row"><span>単位</span><input id="unit" maxlength="20" placeholder="個・箱など"></label>
+      <label class="form-row"><span>分類</span><input id="category" maxlength="50" placeholder="工具など"></label>
+      <label class="form-row"><span>保管場所</span><input id="location" maxlength="100" placeholder="棚Aなど"></label>
+    </section>
+
+    <section class="form-group">
+      <label class="form-row stacked"><span>メモ</span><textarea id="note" rows="4" maxlength="500"></textarea></label>
+    </section>
+
+    <section class="form-group">
+      <label class="form-row file-picker">
+        <span>写真・画像を選択</span><span>›</span>
+        <input id="photo" type="file" accept="image/*">
+      </label>
+      <img id="photoPreview" class="preview" hidden alt="">
+      <label class="form-row"><span>現在の画像を削除</span><input id="removePhoto" type="checkbox"></label>
+    </section>
+
+    <button id="deleteBtn" type="button" class="delete-item" hidden>ゴミ箱へ移動</button>
+  </form>
+</dialog>
+
+<dialog id="trashDialog">
+  <div class="trash-sheet">
+    <div class="handle"></div>
+    <div class="sheet-head">
+      <button id="closeTrashBtn" type="button">閉じる</button>
+      <h2>ゴミ箱</h2>
+      <button id="emptyTrashBtn" type="button" class="danger-text">すべて削除</button>
+    </div>
+    <div id="trashItems" class="trash-list"></div>
+    <div id="trashEmpty" class="empty" hidden>
+      <div class="empty-mark">□</div>
+      <h2>ゴミ箱は空です</h2>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" hidden>
+  <span id="toastText"></span>
+  <button id="undoBtn" type="button">元に戻す</button>
+</div>
+
+<script src="./app.js"></script>
 </body>
 </html>
