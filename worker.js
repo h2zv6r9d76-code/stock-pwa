@@ -22,12 +22,41 @@ async function requireSession(request, db) {
   const row = await db.prepare("SELECT expires_at FROM inventory_sessions WHERE token_hash = ?").bind(await sha256(token)).first();
   if (!row || row.expires_at < new Date().toISOString()) throw new Error("ログインの有効期限が切れました");
 }
+function clientIp(request) {
+  return request.headers.get("CF-Connecting-IP") || "unknown";
+}
+async function loginLock(db, ip) {
+  const row = await db.prepare(
+    "SELECT failed_count, locked_until FROM inventory_login_attempts WHERE ip_address = ?"
+  ).bind(ip).first();
+  if (row?.locked_until && row.locked_until > new Date().toISOString()) {
+    return row.locked_until;
+  }
+  return null;
+}
+async function recordFailedLogin(db, ip) {
+  const now = Date.now();
+  const windowStart = new Date(now - 15 * 60 * 1000).toISOString();
+  const existing = await db.prepare(
+    "SELECT failed_count, first_failed_at FROM inventory_login_attempts WHERE ip_address = ?"
+  ).bind(ip).first();
+  const count = !existing || existing.first_failed_at < windowStart ? 1 : existing.failed_count + 1;
+  // 失敗ごとに 2, 4, 8, 16 秒、5回目で15分間ロックする。
+  const lockSeconds = count >= 5 ? 15 * 60 : 2 ** count;
+  const firstFailedAt = count === 1 ? new Date(now).toISOString() : existing.first_failed_at;
+  const lockedUntil = new Date(now + lockSeconds * 1000).toISOString();
+  await db.prepare(
+    "INSERT INTO inventory_login_attempts (ip_address, failed_count, first_failed_at, locked_until) VALUES (?, ?, ?, ?) ON CONFLICT(ip_address) DO UPDATE SET failed_count = excluded.failed_count, first_failed_at = excluded.first_failed_at, locked_until = excluded.locked_until"
+  ).bind(ip, count, firstFailedAt, lockedUntil).run();
+  return { count, lockedUntil };
+}
 function validItem(item) {
   return item && typeof item.id === "string" && typeof item.name === "string" && typeof item.updatedAt === "string";
 }
 async function ensureSchema(db) {
   await db.exec("CREATE TABLE IF NOT EXISTS inventory_items (id TEXT PRIMARY KEY, item_json TEXT NOT NULL, updated_at TEXT NOT NULL)");
   await db.exec("CREATE TABLE IF NOT EXISTS inventory_sessions (token_hash TEXT PRIMARY KEY, expires_at TEXT NOT NULL)");
+  await db.exec("CREATE TABLE IF NOT EXISTS inventory_login_attempts (ip_address TEXT PRIMARY KEY, failed_count INTEGER NOT NULL, first_failed_at TEXT NOT NULL, locked_until TEXT NOT NULL)");
 }
 
 export default {
@@ -40,7 +69,17 @@ export default {
       const body = await request.json();
       if (path === "/v1/login") {
         if (!env.APP_PASSWORD) return reply("ログイン設定が未完了です", 503);
-        if (typeof body.password !== "string" || body.password.length < 16 || body.password !== env.APP_PASSWORD) return reply("パスワードが正しくありません", 401);
+        const ip = clientIp(request);
+        const lockedUntil = await loginLock(env.DB, ip);
+        if (lockedUntil) return reply("ログイン試行が多すぎます。しばらく待ってから再試行してください", 429, { "Retry-After": String(Math.ceil((new Date(lockedUntil) - Date.now()) / 1000)) });
+        if (typeof body.password !== "string" || body.password.length < 16 || body.password !== env.APP_PASSWORD) {
+          const failure = await recordFailedLogin(env.DB, ip);
+          const message = failure.count >= 5
+            ? "ログイン試行が多すぎます。15分後に再試行してください"
+            : `パスワードが正しくありません。${2 ** failure.count}秒待ってから再試行してください`;
+          return reply(message, 401, { "Retry-After": String(Math.max(0, Math.ceil((new Date(failure.lockedUntil) - Date.now()) / 1000))) });
+        }
+        await env.DB.prepare("DELETE FROM inventory_login_attempts WHERE ip_address = ?").bind(ip).run();
         const token = `${crypto.randomUUID()}${crypto.randomUUID()}`;
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         await env.DB.prepare("INSERT INTO inventory_sessions (token_hash, expires_at) VALUES (?, ?) ON CONFLICT(token_hash) DO UPDATE SET expires_at = excluded.expires_at").bind(await sha256(token), expiresAt).run();
