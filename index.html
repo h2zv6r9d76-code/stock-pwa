@@ -62,7 +62,6 @@
           <span>バックアップから復元</span><span>›</span>
           <input id="restoreInput" type="file" accept="application/json,.json">
         </label>
-        <button id="storageBtn" class="settings-row"><span>保存を保護する</span><span>›</span></button>
         <p id="storageInfo" class="footnote"></p>
       </div>
     </details>
@@ -94,11 +93,19 @@
       </div>
       <label class="form-row"><span>単位</span><input id="unit" maxlength="20" placeholder="個・箱など"></label>
       <label class="form-row"><span>分類</span><input id="category" maxlength="50" placeholder="工具など"></label>
+      <div id="categorySuggestions" class="suggestions" hidden></div>
       <label class="form-row"><span>保管場所</span><input id="location" maxlength="100" placeholder="棚Aなど"></label>
+      <div id="locationSuggestions" class="suggestions" hidden></div>
     </section>
 
     <section class="form-group">
       <label class="form-row stacked"><span>メモ</span><textarea id="note" rows="4" maxlength="500"></textarea></label>
+    </section>
+
+    <section class="form-group">
+      <label class="form-row stacked"><span>関連ワード</span><input id="keywords" maxlength="300" placeholder="例：ネジ、ビス、DIY（カンマ区切り）"></label>
+      <div id="keywordSuggestions" class="suggestions" hidden></div>
+      <p class="field-note">検索に引っかかりやすくするための言葉です。候補を押すだけで追加できます。</p>
     </section>
 
     <section class="form-group">

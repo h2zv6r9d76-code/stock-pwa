@@ -4,6 +4,13 @@ const $=id=>document.getElementById(id);
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtQty=v=>Number.isInteger(Number(v))?String(Number(v)):String(Number(v));
 const fmtDate=v=>v?new Intl.DateTimeFormat("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(v)):"";
+const keywordDictionary={
+  "ネジ":["ねじ","ビス","ボルト","工具","DIY","固定"],"ビス":["ネジ","ねじ","ボルト","工具","DIY","固定"],
+  "ドライバー":["工具","ネジ","ねじ","ビス","DIY","修理"],"レンチ":["工具","ボルト","ナット","DIY","修理"],
+  "洗剤":["日用品","掃除","洗濯","詰め替え"],"電池":["乾電池","バッテリー","家電","予備"],
+  "ケーブル":["コード","充電","USB","家電"],"フィラメント":["3Dプリンター","PLA","PETG","造形"],
+  "薬":["医薬品","常備薬","服用","救急箱"]
+};
 
 function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains(STORE)){const s=d.createObjectStore(STORE,{keyPath:"id"});s.createIndex("updatedAt","updatedAt")}};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 function tx(mode,fn){return new Promise((resolve,reject)=>{const t=db.transaction(STORE,mode),s=t.objectStore(STORE);fn(s);t.oncomplete=resolve;t.onerror=()=>reject(t.error)})}
@@ -24,7 +31,7 @@ function render(){
   const active=allItems.filter(x=>!x.deletedAt);
   const trash=allItems.filter(x=>x.deletedAt);
   const list=active.filter(x=>{
-    const text=[x.name,x.category,x.location,x.note,x.unit].join(" ").toLowerCase();
+    const text=[x.name,x.category,x.location,x.note,x.unit,x.keywords].join(" ").toLowerCase();
     return(!q||text.includes(q))&&(!cat||x.category===cat)
   });
   $("summary").textContent=`${active.length}品目`;
@@ -153,14 +160,38 @@ function setView(v){
 function resetForm(){
   $("itemForm").reset();$("itemId").value="";$("quantity").value=1;$("formTitle").textContent="在庫を追加";
   $("deleteBtn").hidden=true;$("photoPreview").hidden=true;$("photoPreview").removeAttribute("src");currentPhoto=null;
+  renderSuggestions();
 }
 function editItem(id){
   const x=allItems.find(i=>i.id===id);if(!x)return;resetForm();
   $("itemId").value=x.id;$("name").value=x.name;$("quantity").value=x.quantity;$("unit").value=x.unit||"";
-  $("category").value=x.category||"";$("location").value=x.location||"";$("note").value=x.note||"";
+  $("category").value=x.category||"";$("location").value=x.location||"";$("note").value=x.note||"";$("keywords").value=x.keywords||"";
   $("formTitle").textContent="在庫を編集";$("deleteBtn").hidden=false;currentPhoto=x.photoDataUrl||null;
   if(currentPhoto){$("photoPreview").src=currentPhoto;$("photoPreview").hidden=false}
-  $("editor").showModal();
+  renderSuggestions();$("editor").showModal();
+}
+
+function unique(values){return [...new Set(values.map(v=>String(v||"").trim()).filter(Boolean))]}
+function addKeyword(word){
+  const words=unique($("keywords").value.split(/[,、\n]/));
+  if(!words.includes(word))words.push(word);
+  $("keywords").value=words.join("、");renderSuggestions();
+}
+function renderChipList(id,values,onPick){
+  const el=$(id),list=unique(values).slice(0,8);
+  el.hidden=!list.length;
+  el.innerHTML=list.map(v=>`<button class="suggestion-chip" type="button" data-value="${esc(v)}">${esc(v)}</button>`).join("");
+  el.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>onPick(b.dataset.value)));
+}
+function renderSuggestions(){
+  const active=allItems.filter(x=>!x.deletedAt);
+  renderChipList("categorySuggestions",active.map(x=>x.category),v=>{$("category").value=v;renderSuggestions()});
+  renderChipList("locationSuggestions",active.map(x=>x.location),v=>{$("location").value=v;renderSuggestions()});
+  const name=$("name").value.trim(),category=$("category").value.trim();
+  const matched=Object.entries(keywordDictionary).filter(([key])=>(name+" "+category).toLowerCase().includes(key.toLowerCase())).flatMap(([,words])=>words);
+  const past=active.flatMap(x=>String(x.keywords||"").split(/[,、\n]/));
+  const already=unique($("keywords").value.split(/[,、\n]/));
+  renderChipList("keywordSuggestions",[...matched,...past].filter(v=>!already.includes(v)),addKeyword);
 }
 async function imageToDataURL(file){
   const img=await createImageBitmap(file),max=1200,scale=Math.min(1,max/Math.max(img.width,img.height));
@@ -231,7 +262,7 @@ $("photo").addEventListener("change",async e=>{
 $("removePhoto").addEventListener("change",e=>{$("photoPreview").hidden=e.target.checked||!currentPhoto});
 $("itemForm").addEventListener("submit",async e=>{
   e.preventDefault();const now=new Date().toISOString(),old=allItems.find(x=>x.id===$("itemId").value);
-  const item={id:old?.id||crypto.randomUUID(),name:$("name").value.trim(),quantity:Number($("quantity").value),unit:$("unit").value.trim(),category:$("category").value.trim(),location:$("location").value.trim(),note:$("note").value.trim(),photoDataUrl:$("removePhoto").checked?null:currentPhoto,createdAt:old?.createdAt||now,updatedAt:now};
+  const item={id:old?.id||crypto.randomUUID(),name:$("name").value.trim(),quantity:Number($("quantity").value),unit:$("unit").value.trim(),category:$("category").value.trim(),location:$("location").value.trim(),note:$("note").value.trim(),keywords:unique($("keywords").value.split(/[,、\n]/)).join("、"),photoDataUrl:$("removePhoto").checked?null:currentPhoto,createdAt:old?.createdAt||now,updatedAt:now};
   await tx("readwrite",s=>s.put(item));$("editor").close();await refresh();
 });
 $("deleteBtn").addEventListener("click",async()=>{const id=$("itemId").value;if(id){await moveToTrash(id,true);$("editor").close()}});
@@ -253,7 +284,7 @@ $("emptyTrashBtn").addEventListener("click",async()=>{
   await tx("readwrite",s=>trash.forEach(x=>s.delete(x.id)));await refresh();renderTrash();
 });
 $("backupBtn").addEventListener("click",async()=>{
-  const payload={app:"stock-pwa",version:3,exportedAt:new Date().toISOString(),items:await getAll()};
+  const payload={app:"stock-pwa",version:"3.1",exportedAt:new Date().toISOString(),items:await getAll()};
   const blob=new Blob([JSON.stringify(payload)],{type:"application/json"}),name=`在庫バックアップ_${new Date().toISOString().slice(0,10)}.json`,file=new File([blob],name,{type:"application/json"});
   if(navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:"在庫バックアップ"});
   else{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
@@ -263,7 +294,12 @@ $("restoreInput").addEventListener("change",async e=>{
   try{const data=JSON.parse(await f.text());if(data.app!=="stock-pwa"||!Array.isArray(data.items))throw Error("形式が違います");if(!confirm("現在の在庫に追加・上書きしますか？"))return;await tx("readwrite",s=>data.items.forEach(i=>s.put(i)));await refresh();alert(`${data.items.length}件を復元しました`)}
   catch(err){alert("復元できませんでした："+err.message)}finally{e.target.value=""}
 });
-async function showStorage(){if(!navigator.storage?.estimate)return;const e=await navigator.storage.estimate(),used=(e.usage/1048576).toFixed(1),quota=(e.quota/1048576).toFixed(0),persisted=navigator.storage.persisted?await navigator.storage.persisted():false;$("storageInfo").textContent=`使用量 約${used}MB / 上限目安 約${quota}MB・保護状態：${persisted?"有効":"未確認／無効"}`}
-$("storageBtn").addEventListener("click",async()=>{if(!navigator.storage?.persist){alert("この環境では対応していません。");return}const ok=await navigator.storage.persist();alert(ok?"保存保護が有効になりました。":"許可されませんでした。");showStorage()});
+async function showStorage(){
+  if(!navigator.storage?.estimate){$("storageInfo").textContent="在庫データはこのiPhone内に保存されています。大切なデータは定期的にバックアップしてください。";return}
+  const e=await navigator.storage.estimate(),used=(e.usage/1048576).toFixed(1);
+  $("storageInfo").textContent=`在庫データはこのiPhone内に保存中（使用量 約${used}MB）。SafariのWebサイトデータを削除する前に、バックアップを書き出してください。`;
+}
+
+["name","category","location","keywords"].forEach(id=>$(id).addEventListener("input",renderSuggestions));
 
 (async()=>{db=await openDB();setView(currentView);await refresh();await showStorage();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(console.error)})().catch(err=>alert("起動エラー："+err.message));
