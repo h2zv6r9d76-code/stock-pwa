@@ -174,14 +174,26 @@ async function moveToTrash(id,showUndo=false){
   await tx("readwrite",s=>s.put(x));await refresh();
   if(showUndo)showToast(`「${x.name}」をゴミ箱へ移動しました`);
 }
+function hideToast(){
+  clearTimeout(toastTimer);
+  toastTimer=null;
+  $("toast").hidden=true;
+  lastDeleted=null;
+}
 function showToast(text){
-  clearTimeout(toastTimer);$("toastText").textContent=text;$("toast").hidden=false;
-  toastTimer=setTimeout(()=>{$("toast").hidden=true;lastDeleted=null},5000);
+  clearTimeout(toastTimer);
+  $("toastText").textContent=text;
+  $("toast").hidden=false;
+  toastTimer=setTimeout(hideToast,5000);
 }
 async function undoDelete(){
   if(!lastDeleted)return;
-  const x={...lastDeleted};delete x.deletedAt;x.updatedAt=new Date().toISOString();
-  await tx("readwrite",s=>s.put(x));lastDeleted=null;$("toast").hidden=true;await refresh();
+  const x={...lastDeleted};
+  delete x.deletedAt;
+  x.updatedAt=new Date().toISOString();
+  await tx("readwrite",s=>s.put(x));
+  hideToast();
+  await refresh();
 }
 async function restoreTrash(id){
   const x=allItems.find(i=>i.id===id);if(!x)return;delete x.deletedAt;x.updatedAt=new Date().toISOString();
