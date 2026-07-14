@@ -1,5 +1,6 @@
 const DB_NAME="stock-pwa-db",STORE="items",DB_VERSION=1;
-let db,allItems=[],currentPhoto=null,currentView=localStorage.getItem("inventory-view")||"list",lastDeleted=null,toastTimer=null;
+const SYNC_API="https://stock-pwa-api.h2zv6r9d76.workers.dev/v1/sync";
+let db,allItems=[],currentPhoto=null,currentView=localStorage.getItem("inventory-view")||"list",lastDeleted=null,toastTimer=null,syncBusy=false;
 const $=id=>document.getElementById(id);
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtQty=v=>Number.isInteger(Number(v))?String(Number(v)):String(Number(v));
@@ -15,6 +16,27 @@ const keywordDictionary={
 function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains(STORE)){const s=d.createObjectStore(STORE,{keyPath:"id"});s.createIndex("updatedAt","updatedAt")}};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 function tx(mode,fn){return new Promise((resolve,reject)=>{const t=db.transaction(STORE,mode),s=t.objectStore(STORE);fn(s);t.oncomplete=resolve;t.onerror=()=>reject(t.error)})}
 function getAll(){return new Promise((resolve,reject)=>{const r=db.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+
+function cloudSyncEnabled(){return localStorage.getItem("inventory-cloud-sync")==="true"}
+function setSyncStatus(text){$("syncStatus").textContent=text}
+function updateSyncStatus(){setSyncStatus(cloudSyncEnabled()?"同期中":"オフ")}
+function scheduleSync(){if(cloudSyncEnabled())syncNow({quiet:true})}
+async function syncNow({quiet=false}={}){
+  if(syncBusy||!navigator.onLine)return;
+  syncBusy=true;setSyncStatus("同期中…");
+  try{
+    const local=await getAll();
+    const r=await fetch(SYNC_API,{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({items:local})});
+    if(r.status===401||r.status===403)throw new Error("Cloudflare Accessへのログインが必要です");
+    if(!r.ok)throw new Error("同期サーバーに接続できませんでした");
+    const data=await r.json();
+    if(!Array.isArray(data.items))throw new Error("同期データの形式が正しくありません");
+    await tx("readwrite",s=>data.items.forEach(item=>s.put(item)));
+    await refresh();setSyncStatus("同期済み");
+    if(!quiet)showToast("クラウド同期が完了しました");
+  }catch(err){setSyncStatus("要ログイン");if(!quiet)alert(`同期できませんでした：${err.message}`)}
+  finally{syncBusy=false}
+}
 
 async function refresh(){
   allItems=(await getAll()).sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||""));
@@ -149,7 +171,7 @@ function setupSwipeRow(row){
 async function changeQty(id,delta){
   const x=allItems.find(i=>i.id===id);if(!x)return;
   x.quantity=Math.max(0,Number(x.quantity||0)+delta);x.updatedAt=new Date().toISOString();
-  await tx("readwrite",s=>s.put(x));await refresh();
+  await tx("readwrite",s=>s.put(x));await refresh();scheduleSync();
 }
 function setView(v){
   currentView=v;localStorage.setItem("inventory-view",v);
@@ -202,7 +224,7 @@ async function imageToDataURL(file){
 async function moveToTrash(id,showUndo=false){
   const x=allItems.find(i=>i.id===id);if(!x)return;
   lastDeleted={...x};x.deletedAt=new Date().toISOString();x.updatedAt=x.deletedAt;
-  await tx("readwrite",s=>s.put(x));await refresh();
+  await tx("readwrite",s=>s.put(x));await refresh();scheduleSync();
   if(showUndo)showToast(`「${x.name}」をゴミ箱へ移動しました`);
 }
 function hideToast(){
@@ -224,15 +246,15 @@ async function undoDelete(){
   x.updatedAt=new Date().toISOString();
   await tx("readwrite",s=>s.put(x));
   hideToast();
-  await refresh();
+  await refresh();scheduleSync();
 }
 async function restoreTrash(id){
   const x=allItems.find(i=>i.id===id);if(!x)return;delete x.deletedAt;x.updatedAt=new Date().toISOString();
-  await tx("readwrite",s=>s.put(x));await refresh();renderTrash();
+  await tx("readwrite",s=>s.put(x));await refresh();renderTrash();scheduleSync();
 }
 async function permanentDelete(id){
   if(!confirm("完全に削除しますか？元に戻せません。"))return;
-  await tx("readwrite",s=>s.delete(id));await refresh();renderTrash();
+  await tx("readwrite",s=>s.delete(id));await refresh();renderTrash();scheduleSync();
 }
 function renderTrash(){
   const list=allItems.filter(x=>x.deletedAt).sort((a,b)=>b.deletedAt.localeCompare(a.deletedAt));
@@ -263,7 +285,7 @@ $("removePhoto").addEventListener("change",e=>{$("photoPreview").hidden=e.target
 $("itemForm").addEventListener("submit",async e=>{
   e.preventDefault();const now=new Date().toISOString(),old=allItems.find(x=>x.id===$("itemId").value);
   const item={id:old?.id||crypto.randomUUID(),name:$("name").value.trim(),quantity:Number($("quantity").value),unit:$("unit").value.trim(),category:$("category").value.trim(),location:$("location").value.trim(),note:$("note").value.trim(),keywords:unique($("keywords").value.split(/[,、\n]/)).join("、"),photoDataUrl:$("removePhoto").checked?null:currentPhoto,createdAt:old?.createdAt||now,updatedAt:now};
-  await tx("readwrite",s=>s.put(item));$("editor").close();await refresh();
+  await tx("readwrite",s=>s.put(item));$("editor").close();await refresh();scheduleSync();
 });
 $("deleteBtn").addEventListener("click",async()=>{const id=$("itemId").value;if(id){await moveToTrash(id,true);$("editor").close()}});
 $("addBtn").addEventListener("click",()=>{resetForm();$("editor").showModal()});
@@ -289,9 +311,16 @@ $("backupBtn").addEventListener("click",async()=>{
   if(navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:"在庫バックアップ"});
   else{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
 });
+$("syncBtn").addEventListener("click",async()=>{
+  if(!cloudSyncEnabled()){
+    if(!confirm("この端末の在庫を、ログインで保護されたクラウドに同期します。続けますか？"))return;
+    localStorage.setItem("inventory-cloud-sync","true");
+  }
+  await syncNow();
+});
 $("restoreInput").addEventListener("change",async e=>{
   const f=e.target.files[0];if(!f)return;
-  try{const data=JSON.parse(await f.text());if(data.app!=="stock-pwa"||!Array.isArray(data.items))throw Error("形式が違います");if(!confirm("現在の在庫に追加・上書きしますか？"))return;await tx("readwrite",s=>data.items.forEach(i=>s.put(i)));await refresh();alert(`${data.items.length}件を復元しました`)}
+  try{const data=JSON.parse(await f.text());if(data.app!=="stock-pwa"||!Array.isArray(data.items))throw Error("形式が違います");if(!confirm("現在の在庫に追加・上書きしますか？"))return;await tx("readwrite",s=>data.items.forEach(i=>s.put(i)));await refresh();scheduleSync();alert(`${data.items.length}件を復元しました`)}
   catch(err){alert("復元できませんでした："+err.message)}finally{e.target.value=""}
 });
 async function showStorage(){
@@ -302,4 +331,4 @@ async function showStorage(){
 
 ["name","category","location","keywords"].forEach(id=>$(id).addEventListener("input",renderSuggestions));
 
-(async()=>{db=await openDB();setView(currentView);await refresh();await showStorage();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(console.error)})().catch(err=>alert("起動エラー："+err.message));
+(async()=>{db=await openDB();setView(currentView);await refresh();updateSyncStatus();await showStorage();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(console.error);window.addEventListener("online",()=>scheduleSync())})().catch(err=>alert("起動エラー："+err.message));
