@@ -8,7 +8,7 @@
   <title>保管場所選択 - 試作</title>
   <style>
     :root{color-scheme:light dark;--bg:#f2f2f7;--surface:#fff;--text:#000;--sub:rgba(60,60,67,.66);--line:rgba(60,60,67,.18);--blue:#007aff}
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}.app{max-width:640px;margin:auto;min-height:100vh;padding:calc(16px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))}.eyebrow{margin:0;color:var(--sub);font-size:11px;font-weight:700;letter-spacing:.12em}h1{margin:4px 0 22px;font-size:28px}.card{overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:18px}.row{display:flex;align-items:center;gap:12px;min-height:58px;padding:12px 16px;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row label{flex:0 0 88px;font-weight:600}.place-value{flex:1;text-align:right;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.button{border:0;border-radius:11px;background:rgba(0,122,255,.13);color:var(--blue);padding:9px 12px;font:inherit;font-weight:650}.button.primary{background:var(--blue);color:#fff}.note{margin:16px 4px;color:var(--sub);font-size:13px;line-height:1.5}.picker-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-bottom:16px}.picker-head h1{margin:0;font-size:18px;text-align:center}.picker-head .button:last-child{justify-self:end}.breadcrumb{margin:0 0 14px;color:var(--sub);font-size:13px}.add-box{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px;border-bottom:1px solid var(--line)}input{min-width:0;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--text);padding:10px 12px;font:inherit}.choice{display:flex;width:100%;align-items:center;justify-content:space-between;border:0;border-bottom:1px solid var(--line);background:var(--surface);color:var(--text);padding:17px 16px;text-align:left;font:inherit;font-size:17px}.choice:last-child{border-bottom:0}.choice span:last-child{color:var(--sub)}.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(30,30,32,.94);color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;white-space:nowrap}.hidden{display:none!important}@media(prefers-color-scheme:dark){:root{--bg:#000;--surface:#1c1c1e;--text:#fff;--sub:rgba(235,235,245,.6);--line:rgba(84,84,88,.65);--blue:#0a84ff}}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}.app{max-width:640px;margin:auto;min-height:100vh;padding:calc(16px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))}.eyebrow{margin:0;color:var(--sub);font-size:11px;font-weight:700;letter-spacing:.12em}h1{margin:4px 0 22px;font-size:28px}.card{overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:18px}.row{display:flex;align-items:center;gap:12px;min-height:58px;padding:12px 16px;border-bottom:1px solid var(--line)}.row label{flex:0 0 88px;font-weight:600}.place-value{flex:1;text-align:right;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.button{border:0;border-radius:11px;background:rgba(0,122,255,.13);color:var(--blue);padding:9px 12px;font:inherit;font-weight:650}.button.primary{background:var(--blue);color:#fff}.note{margin:16px 4px;color:var(--sub);font-size:13px;line-height:1.5}.location-picker{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--surface) 88%,var(--bg));padding:12px}.location-picker-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 4px 10px}.breadcrumb{margin:0;min-width:0;flex:1;color:var(--sub);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.add-box{display:grid;grid-template-columns:1fr auto;gap:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:10px;background:var(--surface)}input{min-width:0;border:0;background:transparent;color:var(--text);padding:10px 12px;font:inherit}.add-box .button{border-radius:0}.choices{overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.choice{display:flex;width:100%;align-items:center;justify-content:space-between;border:0;border-bottom:1px solid var(--line);background:var(--surface);color:var(--text);padding:15px 14px;text-align:left;font:inherit;font-size:17px}.choice:last-child{border-bottom:0}.choice span:last-child{color:var(--sub)}.picker-help{margin:10px 4px 2px;color:var(--sub);font-size:12px;line-height:1.45}.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(30,30,32,.94);color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;white-space:nowrap}.hidden{display:none!important}@media(prefers-color-scheme:dark){:root{--bg:#000;--surface:#1c1c1e;--text:#fff;--sub:rgba(235,235,245,.6);--line:rgba(84,84,88,.65);--blue:#0a84ff}}
   </style>
 </head>
 <body>
@@ -21,36 +21,28 @@
         <div class="row"><label>数量</label><span class="place-value">1</span></div>
         <div class="row"><label>分類</label><span class="place-value">工具</span></div>
         <div class="row"><label>保管場所</label><span id="selectedLocation" class="place-value">選択してください</span><button id="openPicker" class="button" type="button">選ぶ</button></div>
+        <div id="locationPicker" class="location-picker hidden" aria-live="polite">
+          <div class="location-picker-head"><p id="breadcrumb" class="breadcrumb"></p><button id="backButton" class="button" type="button">閉じる</button></div>
+          <div class="add-box"><input id="newLocation" maxlength="30" placeholder="この階層に場所を追加"><button id="addLocation" class="button primary" type="button">追加</button></div>
+          <div id="choices" class="choices"></div>
+          <p class="picker-help">「＞」付きは次の階層へ進みます。最後の場所を選ぶと、この欄だけ閉じて反映します。</p>
+        </div>
       </div>
       <p class="note">これは保管場所の操作感だけを確認する試作画面です。在庫は保存されません。</p>
-    </section>
-
-    <section id="pickerScreen" class="hidden" aria-live="polite">
-      <div class="picker-head"><button id="backButton" class="button" type="button">戻る</button><h1>保管場所を選ぶ</h1><span></span></div>
-      <p id="breadcrumb" class="breadcrumb"></p>
-      <div class="card">
-        <div class="add-box"><input id="newLocation" maxlength="30" placeholder="この階層に場所を追加"><button id="addLocation" class="button primary" type="button">追加</button></div>
-        <div id="choices"></div>
-      </div>
-      <p class="note">「＞」付きの場所は、タップすると次の階層へ進みます。最後の場所をタップすると在庫追加画面へ戻ります。</p>
     </section>
   </main>
   <div id="toast" class="toast hidden" role="status"></div>
 
   <script>
-    const tree={root:{name:"保管場所",children:["floor1","floor2"]},floor1:{name:"1階",children:["washroom","toolroom"]},floor2:{name:"2階",children:["bedroom","closet"]},washroom:{name:"洗面所",children:["frontShelf","underSink"]},toolroom:{name:"工具部屋",children:["rack"]},bedroom:{name:"寝室",children:[]},closet:{name:"押入れ",children:[]},frontShelf:{name:"正面棚",children:["clearCase","topShelf"]},underSink:{name:"洗面台下",children:[]},rack:{name:"メタルラック",children:[]},clearCase:{name:"文具横の透明ケース",children:[]},topShelf:{name:"上段",children:[]}};
+    const tree={root:{name:"保管場所",children:["floor1","floor2"]},floor1:{name:"1階",children:["washroom","myRoom","toolroom"]},floor2:{name:"2階",children:["bedroom","closet"]},washroom:{name:"洗面所",children:["frontShelf","underSink"]},myRoom:{name:"俺の部屋",children:["deskShelf"]},toolroom:{name:"工具部屋",children:["rack"]},bedroom:{name:"寝室",children:[]},closet:{name:"押入れ",children:[]},frontShelf:{name:"正面棚",children:["clearCase","topShelf"]},underSink:{name:"洗面台下",children:[]},deskShelf:{name:"机横の棚",children:[]},rack:{name:"メタルラック",children:[]},clearCase:{name:"文具横の透明ケース",children:[]},topShelf:{name:"上段",children:[]}};
     let current="root",history=[],selected="",toastTimer;
     const $=id=>document.getElementById(id);
     const pathFor=id=>[...history,id].filter(x=>x!=="root").map(x=>tree[x].name);
     const showToast=text=>{clearTimeout(toastTimer);$("toast").textContent=text;$("toast").classList.remove("hidden");toastTimer=setTimeout(()=>$("toast").classList.add("hidden"),2200)};
-    function showForm(){
-      $("pickerScreen").classList.add("hidden");$("formScreen").classList.remove("hidden");
-      $("selectedLocation").textContent=selected||"選択してください";
-    }
     function showPicker(){
-      $("formScreen").classList.add("hidden");$("pickerScreen").classList.remove("hidden");
+      $("locationPicker").classList.remove("hidden");
       const path=pathFor(current);$("breadcrumb").textContent=path.length?path.join(" ＞ "):"最初の階層を選んでください";
-      $("backButton").hidden=current==="root";$("newLocation").value="";
+      $("backButton").textContent=current==="root"?"閉じる":"戻る";$("newLocation").value="";
       const choices=$("choices");choices.innerHTML="";
       tree[current].children.forEach(id=>{
         const button=document.createElement("button"),name=document.createElement("span"),next=document.createElement("span");button.type="button";button.className="choice";
@@ -60,10 +52,10 @@
     }
     function choose(id){
       if(tree[id].children.length){history.push(current);current=id;showPicker();return}
-      selected=[...pathFor(current),tree[id].name].join(" ＞ ");showForm();showToast("保管場所を選択しました");
+      selected=[...pathFor(current),tree[id].name].join(" ＞ ");$("selectedLocation").textContent=selected;$("locationPicker").classList.add("hidden");showToast("保管場所を選択しました");
     }
     $("openPicker").addEventListener("click",()=>{current="root";history=[];showPicker()});
-    $("backButton").addEventListener("click",()=>{current=history.pop()||"root";showPicker()});
+    $("backButton").addEventListener("click",()=>{if(current==="root"){$("locationPicker").classList.add("hidden");return}current=history.pop()||"root";showPicker()});
     $("addLocation").addEventListener("click",()=>{
       const name=$("newLocation").value.trim();if(!name)return;
       const id="custom-"+crypto.randomUUID();tree[id]={name,children:[]};tree[current].children.unshift(id);showPicker();showToast("場所を追加しました");
