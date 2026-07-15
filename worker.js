@@ -1,4 +1,7 @@
 const ORIGIN = "https://h2zv6r9d76-code.github.io";
+const MAX_ITEMS_PER_SYNC = 500;
+const MAX_CIPHERTEXT_CHARS = 1205000;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 function corsHeaders() {
   return {
@@ -50,8 +53,17 @@ async function recordFailedLogin(db, ip) {
   ).bind(ip, count, firstFailedAt, lockedUntil).run();
   return { count, lockedUntil };
 }
-function validItem(item) {
-  return item && typeof item.id === "string" && typeof item.name === "string" && typeof item.updatedAt === "string";
+function validEncryptedItem(item) {
+  return item
+    && item.encrypted === true
+    && typeof item.id === "string" && item.id.length > 0 && item.id.length <= 100
+    && typeof item.updatedAt === "string" && !Number.isNaN(Date.parse(item.updatedAt))
+    && typeof item.iv === "string" && item.iv.length <= 24 && BASE64.test(item.iv)
+    && typeof item.ciphertext === "string" && item.ciphertext.length > 0 && item.ciphertext.length <= MAX_CIPHERTEXT_CHARS && BASE64.test(item.ciphertext);
+}
+function isEncryptedStoredItem(value) {
+  try { return JSON.parse(value)?.encrypted === true; }
+  catch { return false; }
 }
 async function ensureSchema(db) {
   await db.exec("CREATE TABLE IF NOT EXISTS inventory_items (id TEXT PRIMARY KEY, item_json TEXT NOT NULL, updated_at TEXT NOT NULL)");
@@ -72,7 +84,7 @@ export default {
         const ip = clientIp(request);
         const lockedUntil = await loginLock(env.DB, ip);
         if (lockedUntil) return reply("ログイン試行が多すぎます。しばらく待ってから再試行してください", 429, { "Retry-After": String(Math.ceil((new Date(lockedUntil) - Date.now()) / 1000)) });
-        if (typeof body.password !== "string" || body.password.length < 16 || body.password !== env.APP_PASSWORD) {
+        if (typeof body.password !== "string" || body.password.length < 16 || body.password.length > 1024 || body.password !== env.APP_PASSWORD) {
           const failure = await recordFailedLogin(env.DB, ip);
           const message = failure.count >= 5
             ? "ログイン試行が多すぎます。15分後に再試行してください"
@@ -81,16 +93,16 @@ export default {
         }
         await env.DB.prepare("DELETE FROM inventory_login_attempts WHERE ip_address = ?").bind(ip).run();
         const token = `${crypto.randomUUID()}${crypto.randomUUID()}`;
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const expiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
         await env.DB.prepare("INSERT INTO inventory_sessions (token_hash, expires_at) VALUES (?, ?) ON CONFLICT(token_hash) DO UPDATE SET expires_at = excluded.expires_at").bind(await sha256(token), expiresAt).run();
         return reply(JSON.stringify({ token }), 200, { "Content-Type": "application/json" });
       }
       if (path !== "/v1/sync") return reply("Not found", 404);
       await requireSession(request, env.DB);
-      if (!Array.isArray(body.items) || body.items.some(item => !validItem(item))) return reply("Invalid items", 400);
+      if (!Array.isArray(body.items) || body.items.length > MAX_ITEMS_PER_SYNC || body.items.some(item => !validEncryptedItem(item))) return reply("Invalid encrypted items", 400);
       for (const item of body.items) {
-        const existing = await env.DB.prepare("SELECT updated_at FROM inventory_items WHERE id = ?").bind(item.id).first();
-        if (!existing || item.updatedAt > existing.updated_at) {
+        const existing = await env.DB.prepare("SELECT updated_at, item_json FROM inventory_items WHERE id = ?").bind(item.id).first();
+        if (!existing || item.updatedAt > existing.updated_at || !isEncryptedStoredItem(existing.item_json)) {
           await env.DB.prepare("INSERT INTO inventory_items (id, item_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET item_json = excluded.item_json, updated_at = excluded.updated_at").bind(item.id, JSON.stringify(item), item.updatedAt).run();
         }
       }

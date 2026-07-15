@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="在庫管理">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://stock-pwa-api.h2zv6r9d76.workers.dev; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="./style.css">
@@ -185,6 +186,21 @@
     <p class="login-note">同期用に設定したパスワードを入力してください。この端末にだけログイン情報を保存します。</p>
     <section class="form-group">
       <label class="form-row stacked"><span>パスワード</span><input id="syncPassword" type="password" autocomplete="current-password" required minlength="16" placeholder="16文字以上"></label>
+    </section>
+  </form>
+</dialog>
+
+<dialog id="backupPasswordDialog">
+  <form id="backupPasswordForm">
+    <div class="handle"></div>
+    <div class="sheet-head">
+      <button id="closeBackupPasswordBtn" type="button">キャンセル</button>
+      <h2 id="backupPasswordTitle">暗号化バックアップ</h2>
+      <button class="save" type="submit">続ける</button>
+    </div>
+    <p id="backupPasswordNote" class="login-note"></p>
+    <section class="form-group">
+      <label class="form-row stacked"><span>バックアップ用パスワード</span><input id="backupPassword" type="password" autocomplete="new-password" required minlength="16" placeholder="16文字以上"></label>
     </section>
   </form>
 </dialog>
