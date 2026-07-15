@@ -25,7 +25,7 @@
           <div class="location-picker-head"><p id="breadcrumb" class="breadcrumb"></p><button id="backButton" class="button" type="button">閉じる</button></div>
           <div class="add-box"><input id="newLocation" maxlength="30" placeholder="この階層に場所を追加"><button id="addLocation" class="button primary" type="button">追加</button></div>
           <div id="choices" class="choices"></div>
-          <p class="picker-help">「＞」付きは次の階層へ進みます。最後の場所を選ぶと、この欄だけ閉じて反映します。</p>
+          <p class="picker-help">追加した場所は自動で次の階層を作れます。追加直後にその場所の中へ進むので、続けて奥の場所を追加できます。</p>
         </div>
       </div>
       <p class="note">これは保管場所の操作感だけを確認する試作画面です。在庫は保存されません。</p>
@@ -46,19 +46,19 @@
       const choices=$("choices");choices.innerHTML="";
       tree[current].children.forEach(id=>{
         const button=document.createElement("button"),name=document.createElement("span"),next=document.createElement("span");button.type="button";button.className="choice";
-        name.textContent=tree[id].name;next.textContent=tree[id].children.length?"＞":"";button.append(name,next);
+        name.textContent=tree[id].name;next.textContent=(tree[id].branch||tree[id].children.length)?"＞":"";button.append(name,next);
         button.addEventListener("click",()=>choose(id));choices.appendChild(button);
       });
     }
     function choose(id){
-      if(tree[id].children.length){history.push(current);current=id;showPicker();return}
+      if(tree[id].branch||tree[id].children.length){history.push(current);current=id;showPicker();return}
       selected=[...pathFor(current),tree[id].name].join(" ＞ ");$("selectedLocation").textContent=selected;$("locationPicker").classList.add("hidden");showToast("保管場所を選択しました");
     }
     $("openPicker").addEventListener("click",()=>{current="root";history=[];showPicker()});
     $("backButton").addEventListener("click",()=>{if(current==="root"){$("locationPicker").classList.add("hidden");return}current=history.pop()||"root";showPicker()});
     $("addLocation").addEventListener("click",()=>{
       const name=$("newLocation").value.trim();if(!name)return;
-      const id="custom-"+crypto.randomUUID();tree[id]={name,children:[]};tree[current].children.unshift(id);showPicker();showToast("場所を追加しました");
+      const id="custom-"+crypto.randomUUID();tree[id]={name,children:[],branch:true};tree[current].children.unshift(id);history.push(current);current=id;showPicker();showToast("場所を追加しました。続けて奥の場所を追加できます");
     });
     $("newLocation").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();$("addLocation").click()}});
   </script>
