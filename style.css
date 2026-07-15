@@ -22,6 +22,7 @@ main{padding:16px 28px}
 .search button{border:0;background:rgba(118,118,128,.25);border-radius:50%;width:20px;height:20px;padding:0;color:var(--secondary)}
 .filter-row{display:flex;gap:10px}
 .filter-row select{flex:1;min-width:0;border:0;border-radius:11px;background:var(--surface);color:var(--label);padding:10px 12px;box-shadow:0 0 0 1px var(--separator)}
+.sort-row{display:grid;grid-template-columns:1fr 105px;gap:10px}.sort-row select{min-width:0;border:0;border-radius:11px;background:var(--surface);color:var(--label);padding:10px 12px;box-shadow:0 0 0 1px var(--separator)}
 .segments{display:flex;padding:2px;border-radius:11px;background:rgba(118,118,128,.12)}
 .segments button{border:0;background:transparent;color:var(--secondary);padding:8px 14px;border-radius:9px;font-weight:650}
 .segments button.active{background:var(--surface);color:var(--label);box-shadow:0 1px 5px rgba(0,0,0,.13)}

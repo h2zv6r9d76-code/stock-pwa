@@ -1,6 +1,6 @@
 const DB_NAME="stock-pwa-db",STORE="items",DB_VERSION=1;
 const SYNC_ORIGIN="https://stock-pwa-api.h2zv6r9d76.workers.dev";
-let db,allItems=[],currentPhoto=null,currentView=localStorage.getItem("inventory-view")||"list",lastDeleted=null,toastTimer=null,syncBusy=false,scannerStream=null,scannerTimer=null,barcodeDetector=null;
+let db,allItems=[],currentPhoto=null,currentView=localStorage.getItem("inventory-view")||"list",currentSort=localStorage.getItem("inventory-sort")||"updatedAt",currentSortOrder=localStorage.getItem("inventory-sort-order")||"desc",lastDeleted=null,toastTimer=null,syncBusy=false,scannerStream=null,scannerTimer=null,barcodeDetector=null;
 const $=id=>document.getElementById(id);
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtQty=v=>Number.isInteger(Number(v))?String(Number(v)):String(Number(v));
@@ -42,7 +42,7 @@ async function syncNow({quiet=false}={}){
 }
 
 async function refresh(){
-  allItems=(await getAll()).sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||""));
+  allItems=await getAll();
   const active=allItems.filter(x=>!x.deletedAt);
   const cats=[...new Set(active.map(x=>x.category).filter(Boolean))].sort();
   const selected=$("categoryFilter").value;
@@ -58,6 +58,11 @@ function render(){
   const list=active.filter(x=>{
     const text=[x.name,x.barcode,x.category,x.location,x.note,x.unit,x.keywords].join(" ").toLowerCase();
     return(!q||text.includes(q))&&(!cat||x.category===cat)
+  }).sort((a,b)=>{
+    const aValue=currentSort==="name"?(a.name||""):(a[currentSort]||"");
+    const bValue=currentSort==="name"?(b.name||""):(b[currentSort]||"");
+    const result=String(aValue).localeCompare(String(bValue),"ja");
+    return currentSortOrder==="asc"?result:-result;
   });
   $("summary").textContent=`${active.length}品目`;
   $("trashCount").textContent=trash.length;
@@ -180,6 +185,13 @@ function setView(v){
   currentView=v;localStorage.setItem("inventory-view",v);
   $("listViewBtn").classList.toggle("active",v==="list");
   $("cardViewBtn").classList.toggle("active",v==="card");
+  render();
+}
+function setSort(){
+  currentSort=$("sortField").value;
+  currentSortOrder=$("sortOrder").value;
+  localStorage.setItem("inventory-sort",currentSort);
+  localStorage.setItem("inventory-sort-order",currentSortOrder);
   render();
 }
 function resetForm(){
@@ -336,6 +348,8 @@ $("scannerDialog").addEventListener("close",stopScanner);
 $("search").addEventListener("input",render);
 $("clearSearch").addEventListener("click",()=>{$("search").value="";render()});
 $("categoryFilter").addEventListener("change",render);
+$("sortField").addEventListener("change",setSort);
+$("sortOrder").addEventListener("change",setSort);
 $("listViewBtn").addEventListener("click",()=>setView("list"));
 $("cardViewBtn").addEventListener("click",()=>setView("card"));
 $("formMinus").addEventListener("click",()=>{$("quantity").value=Math.max(0,Number($("quantity").value||0)-1)});
@@ -385,4 +399,4 @@ async function showStorage(){
 
 ["name","category","location","keywords"].forEach(id=>$(id).addEventListener("input",renderSuggestions));
 
-(async()=>{db=await openDB();setView(currentView);await refresh();updateSyncStatus();await showStorage();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(console.error);window.addEventListener("online",()=>scheduleSync());scheduleSync()})().catch(err=>alert("起動エラー："+err.message));
+(async()=>{db=await openDB();setView(currentView);$("sortField").value=currentSort;$("sortOrder").value=currentSortOrder;await refresh();updateSyncStatus();await showStorage();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(console.error);window.addEventListener("online",()=>scheduleSync());scheduleSync()})().catch(err=>alert("起動エラー："+err.message));

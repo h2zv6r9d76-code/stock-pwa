@@ -40,6 +40,17 @@
           <button id="cardViewBtn" type="button">カード</button>
         </div>
       </div>
+      <div class="sort-row" aria-label="並び替え">
+        <select id="sortField" aria-label="並び順">
+          <option value="updatedAt">編集順</option>
+          <option value="createdAt">追加順</option>
+          <option value="name">名前順</option>
+        </select>
+        <select id="sortOrder" aria-label="順序">
+          <option value="desc">降順</option>
+          <option value="asc">昇順</option>
+        </select>
+      </div>
     </section>
 
     <p class="swipe-hint">項目を左へスワイプすると削除できます</p>
